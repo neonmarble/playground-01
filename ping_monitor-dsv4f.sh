@@ -6,6 +6,7 @@ BOT_TOKEN="${TELEGRAM_BOT_TOKEN}"
 CHAT_ID="${TELEGRAM_CHAT_ID}"
 INTERVAL=60
 
+# send_alert sends a Markdown-formatted "Ping Alert" to the Telegram chat configured by $BOT_TOKEN and $CHAT_ID, reporting the current $HOST and a timestamp.
 send_alert() {
   local msg="🚨 *Ping Alert*%0AHost *$HOST* is unreachable!%0A$(date '+%Y-%m-%d %H:%M:%S')"
   curl -s --max-time 10 \
