@@ -1,17 +1,17 @@
 # 🎮 Playground 01
 
-> A sandbox repository for learning Git, Pull Requests, CI/CD, and modern DevOps workflows. 🚀
+> My personal sandbox for learning Git, PRs, CI/CD, and everything DevOps. 🚀
 
-## 🎯 Purpose
+## 🎯 Goal
 
-This repo is a **safe space to break things** 💥 — no production code, no stress, just learning by doing. Whether you're new to version control or looking to level up your DevOps skills, you're in the right place.
+A **safe space to break things** 💥 — no production code, no stress, just learning by doing. I'm here to level up my skills in version control, automation, and modern development workflows.
 
-## 🧪 What You Can Learn Here
+## 🧪 Topics I'm Exploring
 
-| Topic | Description |
-|-------|-------------|
+| Topic | Why |
+|-------|-----|
 | **🐙 Git Basics** | `clone`, `add`, `commit`, `push`, `pull`, `branch`, `merge` |
-| **🔀 Pull Requests** | Fork, open PRs, review code, resolve conflicts |
+| **🔀 Pull Requests** | Open PRs, review code, resolve conflicts |
 | **🔄 Rebasing** | `rebase`, `rebase -i`, squashing commits |
 | **🛠️ CI/CD** | GitHub Actions, automated testing, deployment pipelines |
 | **🧪 Testing** | Unit tests, integration tests, coverage reports |
@@ -20,33 +20,21 @@ This repo is a **safe space to break things** 💥 — no production code, no st
 ## 🏁 Getting Started
 
 ```bash
-# Clone the repo
 git clone https://github.com/neonmarble/playground-01.git
-
-# Enter the playground
 cd playground-01
-
-# Start experimenting! 🎉
+# Let the learning begin! 🎉
 ```
 
-## 🤝 How to Contribute
+## 🗺️ My Learning Roadmap
 
-1. 🍴 **Fork** this repository
-2. 🌿 Create a **feature branch**: `git checkout -b my-learning`
-3. ✏️ **Make changes** and commit them
-4. 🚀 **Open a Pull Request**
-5. 📢 **Tag a maintainer** for review
-
-Check out [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
-
-## 🌟 Project Ideas
-
-- 📝 Add a new guide or tutorial
-- 🐛 Fix a "bug" (we can create some on purpose!)
-- ✅ Write tests for existing code
-- 🤖 Set up a GitHub Actions workflow
-- 📊 Add a badge to show CI status
-- 🔧 Configure linters and formatters
+- [x] Create the repo
+- [ ] Make my first commit
+- [ ] Create and merge a PR
+- [ ] Set up CI with GitHub Actions
+- [ ] Add tests with coverage
+- [ ] Configure linters and formatters
+- [ ] Tag a release
+- [ ] Break something and fix it 🔧
 
 ## 📚 Resources
 
@@ -55,12 +43,8 @@ Check out [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 - [GitHub Actions Docs](https://docs.github.com/en/actions)
 - [Oh Shit, Git!?!](https://ohshitgit.com/) — when things go wrong 😅
 
-## 📝 License
-
-This project is licensed under the **MIT License** — feel free to use, share, and learn from it.
-
 ---
 
 <p align="center">
-  Made with ❤️ for the open source community
+  Learning in public ☀️
 </p>
