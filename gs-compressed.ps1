@@ -7,6 +7,9 @@
 	Destination directory for compressed PDFs. Defaults to "compressed".
 .PARAMETER PdfSettings
 	Ghostscript PDFSETTINGS preset. One of: /screen, /ebook, /printer, /prepress, /default.
+.PARAMETER GsExe
+	Path to the Ghostscript executable. Accepts a name on PATH (e.g. "gswin64c") or a full
+	path (e.g. "C:\Program Files\gs\bin\gswin64c.exe"). Defaults to "gswin64c".
 #>
 
 [CmdletBinding()]
