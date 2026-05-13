@@ -24,14 +24,21 @@ $gsPath = Get-Command -Name $GsExe -CommandType Application -ErrorAction Stop |
 	Select-Object -ExpandProperty Source
 Write-Verbose "Using Ghostscript: $gsPath"
 
-# Ensure output directory
+# Collect PDFs
+$pdfFiles = @(Get-ChildItem -LiteralPath . -Filter '*.pdf' -File)
+if ($pdfFiles.Count -eq 0) {
+	Write-Host 'No PDF files found in the current directory.'
+	exit 0
+}
+
+# Ensure output directory (only after confirming PDFs exist)
 if (-not (Test-Path -LiteralPath $OutputDir -PathType Container)) {
 	New-Item -ItemType Directory -Path $OutputDir | Out-Null
 	Write-Verbose "Created '$OutputDir' directory."
 }
 
 # Process PDFs
-Get-ChildItem -LiteralPath . -Filter '*.pdf' -File | ForEach-Object {
+$pdfFiles | ForEach-Object {
 	$outputFile = Join-Path $OutputDir $_.Name
 	Write-Verbose "Compressing: $($_.Name)"
 
