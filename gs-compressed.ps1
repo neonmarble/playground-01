@@ -1,19 +1,55 @@
-# Check if "compressed" directory exists, create it if not
-if (-not (Test-Path -Path "compressed" -PathType Container)) {
-    New-Item -ItemType Directory -Path "compressed" | Out-Null
-    Write-Host "Created 'compressed' directory."
-} else {
-    Write-Host "'compressed' directory already exists! Proceeding..."
+<#	
+.SYNOPSIS
+	Compresses PDF files in the current directory using Ghostscript.
+.DESCRIPTION
+	Processes all *.pdf files and writes compressed copies to a subdirectory.
+.PARAMETER OutputDir
+	Destination directory for compressed PDFs. Defaults to "compressed".
+.PARAMETER PdfSettings
+	Ghostscript PDFSETTINGS preset. One of: /screen, /ebook, /printer, /prepress, /default.
+#>
+
+[CmdletBinding()]
+param(
+	[string]$OutputDir = 'compressed',
+	[ValidateSet('/screen', '/ebook', '/printer', '/prepress', '/default')]
+	[string]$PdfSettings = '/ebook',
+	[string]$GsExe = 'gswin64c'
+)
+
+$ErrorActionPreference = 'Stop'
+
+# Locate Ghostscript
+$gsPath = Get-Command -Name $GsExe -CommandType Application -ErrorAction Stop |
+	Select-Object -ExpandProperty Source
+Write-Verbose "Using Ghostscript: $gsPath"
+
+# Ensure output directory
+if (-not (Test-Path -LiteralPath $OutputDir -PathType Container)) {
+	New-Item -ItemType Directory -Path $OutputDir | Out-Null
+	Write-Verbose "Created '$OutputDir' directory."
 }
 
-# Process each PDF in the current directory
-Get-ChildItem -Filter "*.pdf" | ForEach-Object {
-    $inputFile = $_.Name
-    $outputFile = Join-Path "compressed" $_.Name
+# Process PDFs
+Get-ChildItem -LiteralPath . -Filter '*.pdf' -File | ForEach-Object {
+	$outputFile = Join-Path $OutputDir $_.Name
+	Write-Verbose "Compressing: $($_.Name)"
 
-    Write-Host "Compressing: $inputFile"
+	$gsArgs = @(
+		'-sDEVICE=pdfwrite',
+		'-dQUIET',
+		'-dCompatibilityLevel=1.7',
+		"-dPDFSETTINGS=$PdfSettings",
+		'-dNOPAUSE',
+		'-dBATCH',
+		"-sOutputFile=$outputFile",
+		$_.FullName
+	)
 
-    Start-Process gswin64c -ArgumentList "-sDEVICE=pdfwrite -dQUIET -dCompatibilityLevel=1.7 -dPDFSETTINGS=/ebook -dNOPAUSE -dBATCH -sOUTPUTFILE=""$outputFile"" ""$inputFile""" -Wait -NoNewWindow
+	& $gsPath $gsArgs
+	if ($LASTEXITCODE -ne 0) {
+		Write-Error "Ghostscript failed on '$($_.Name)' (exit code: $LASTEXITCODE)"
+	}
 }
 
-Write-Host "Done! Compressed files are in the 'compressed' folder."
+Write-Host "Done! Compressed files are in '$OutputDir'."
