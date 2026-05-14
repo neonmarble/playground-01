@@ -68,9 +68,23 @@ if (-not (Test-Path -LiteralPath $OutputDir -PathType Container)) {
 }
 
 # Process PDFs
-$pdfFiles | ForEach-Object {
+$i = 0
+$total = $pdfFiles.Count
+Write-Host "Processing $total PDF file(s)..."
+
+$pdfFiles | ForEach-Object -Begin { $i = 0 } -Process {
+	$i++
+	$timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+	$percent = [math]::Floor(($i / $total) * 100)
+
+	Write-Progress -Activity 'Compressing PDFs' `
+		-Status "File $i of $total [$percent%]" `
+		-CurrentOperation $_.Name `
+		-PercentComplete $percent
+
+	Write-Host "[$timestamp] Compressing: $($_.Name)"
+
 	$outputFile = Join-Path $OutputDir $_.Name
-	Write-Verbose "Compressing: $($_.Name)"
 
 	$gsArgs = @(
 		'-sDEVICE=pdfwrite',
@@ -87,6 +101,8 @@ $pdfFiles | ForEach-Object {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Ghostscript failed on '$($_.Name)' (exit code: $LASTEXITCODE)"
 	}
+} -End {
+	Write-Progress -Activity 'Compressing PDFs' -Completed
 }
 
 Write-Host "Done! Compressed files are in '$OutputDir'."
