@@ -1,0 +1,16 @@
+# PowerShell
+ps_modules/
+Modules/
+*.ps1xml
+*.psc1
+*.pssc
+
+# Bash/Shell
+.bash_history
+.bash_logout
+.bash_sessions/
+.zsh_history
+.zsh_sessions/
+*.swp
+*.swo
+*~
