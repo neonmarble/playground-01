@@ -1,15 +1,42 @@
-<#	
+<#
 .SYNOPSIS
-	Compresses PDF files in the current directory using Ghostscript.
+
+Compresses PDF files in the current directory using Ghostscript.
+
 .DESCRIPTION
-	Processes all *.pdf files and writes compressed copies to a subdirectory.
+
+Processes all *.pdf files and writes compressed copies to a subdirectory.
+
 .PARAMETER OutputDir
-	Destination directory for compressed PDFs. Defaults to "compressed".
+Destination directory for compressed PDFs. Defaults to "compressed".
+
 .PARAMETER PdfSettings
-	Ghostscript PDFSETTINGS preset. One of: /screen, /ebook, /printer, /prepress, /default.
+Ghostscript PDFSETTINGS preset. One of: /screen, /ebook, /printer, /prepress, /default.
+Defaults to "/ebook".
+
 .PARAMETER GsExe
-	Path to the Ghostscript executable. Accepts a name on PATH (e.g. "gswin64c") or a full
-	path (e.g. "C:\Program Files\gs\bin\gswin64c.exe"). Defaults to "gswin64c".
+Path to the Ghostscript executable. Accepts a name on PATH (e.g. "gswin64c") or a full
+path (e.g. "C:\Program Files\gs\bin\gswin64c.exe"). Defaults to "gswin64c".
+
+.INPUTS
+
+None. You cannot pipe input to this script.
+
+.OUTPUTS
+
+None. This script writes files to disk and does not generate pipeline output.
+
+.EXAMPLE
+
+PS> .\gs-compressed.ps1
+
+Compresses all PDFs in the current directory using the default /ebook settings.
+
+.EXAMPLE
+
+PS> .\gs-compressed.ps1 -PdfSettings /screen -OutputDir small
+
+Compresses PDFs with /screen preset and writes output to a "small" subdirectory.
 #>
 
 [CmdletBinding()]
@@ -31,7 +58,7 @@ Write-Verbose "Using Ghostscript: $gsPath"
 $pdfFiles = @(Get-ChildItem -LiteralPath . -Filter '*.pdf' -File)
 if ($pdfFiles.Count -eq 0) {
 	Write-Host 'No PDF files found in the current directory.'
-	exit 0
+	return
 }
 
 # Ensure output directory (only after confirming PDFs exist)
@@ -58,7 +85,7 @@ $pdfFiles | ForEach-Object {
 
 	& $gsPath $gsArgs
 	if ($LASTEXITCODE -ne 0) {
-		Write-Error "Ghostscript failed on '$($_.Name)' (exit code: $LASTEXITCODE)"
+		throw "Ghostscript failed on '$($_.Name)' (exit code: $LASTEXITCODE)"
 	}
 }
 
