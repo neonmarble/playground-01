@@ -135,13 +135,15 @@ function Compress-Pdf {
 	Write-Information ''
 
 	# ── Write log file header ─────────────────────────────────────────────
-	$logFile = Join-Path $resolvedOutputDir 'log.txt'
+	$timestamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:sszzz'
+	$safeTimestamp = $timestamp -replace ':', ''
+	$logFile = Join-Path $resolvedOutputDir "log-$safeTimestamp.txt"
 	$logSep  = ('=' * 60)
 	$logHeader = @(
 		$logSep
 		"  Ghostscript PDF Compressor v2.0 - Log"
 		$logSep
-		"  Date        : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+		"  Date        : $timestamp"
 		"  Ghostscript : $gsVersion ($gsExeName)"
 		"  PDF Settings: $PdfSettings"
 		"  Output Dir  : $resolvedOutputDir"
