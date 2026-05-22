@@ -31,25 +31,25 @@ None. This script writes files to disk and does not generate pipeline output.
 
 .EXAMPLE
 
-PS> .\gs-compress-v2.0.ps1
+PS> .\gs-compress.ps1
 
 Compresses all PDFs in the current directory using the default /ebook settings.
 
 .EXAMPLE
 
-PS> .\gs-compress-v2.0.ps1 -PdfSettings /screen -OutputDir small
+PS> .\gs-compress.ps1 -PdfSettings /screen -OutputDir small
 
 Compresses PDFs with /screen preset and writes output to a "small" subdirectory.
 
 .EXAMPLE
 
-PS> .\gs-compress-v2.0.ps1 -WhatIf
+PS> .\gs-compress.ps1 -WhatIf
 
 Shows what would happen without actually compressing any files.
 
 .EXAMPLE
 
-PS> .\gs-compress-v2.0.ps1 -Confirm
+PS> .\gs-compress.ps1 -Confirm
 
 Prompts for confirmation before compressing each file.
 
@@ -118,42 +118,45 @@ function Compress-Pdf {
 	$tempDir = Join-Path $env:TEMP "gs-compress-$([guid]::NewGuid().ToString('N'))"
 	[System.IO.Directory]::CreateDirectory($tempDir) | Out-Null
 
-	# ── Process PDFs ──────────────────────────────────────────────────────
+	# ── Counters ───────────────────────────────────────────────────────────
 	$total = $pdfFiles.Count
 	$totalOriginalSize = 0
 	$totalCompressedSize = 0
+
 	# ── Banner ────────────────────────────────────────────────────────────
-	$separator = ('-' * 40)
+	$bannerSep = ('-' * 40)
 	Write-Information ''
-	Write-Information $separator
+	Write-Information $bannerSep
 	Write-Information '  Ghostscript PDF Compressor v2.0'
-	Write-Information $separator
+	Write-Information $bannerSep
 	Write-Information "  Ghostscript : $gsVersion ($gsExeName)"
 	Write-Information "  PDF Settings: $PdfSettings"
 	Write-Information "  Output Dir  : $resolvedOutputDir"
-	Write-Information $separator
+	Write-Information $bannerSep
 	Write-Information ''
 
-	# ── Write log file header ─────────────────────────────────────────────
+	# ── Log file ──────────────────────────────────────────────────────────
 	$timestamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:sszzz'
 	$safeTimestamp = $timestamp -replace ':', ''
 	$logFile = Join-Path $resolvedOutputDir "log-$safeTimestamp.txt"
-	$logSep  = ('=' * 60)
-	$logHeader = @(
-		$logSep
-		"  Ghostscript PDF Compressor v2.0 - Log"
-		$logSep
-		"  Date        : $timestamp"
-		"  Ghostscript : $gsVersion ($gsExeName)"
-		"  PDF Settings: $PdfSettings"
-		"  Output Dir  : $resolvedOutputDir"
-		$logSep
-		""
-	)
-	[System.IO.File]::WriteAllLines($logFile, $logHeader)
+	$logHeaderSep = ('=' * 60)
+	if ($caller.ShouldProcess($logFile, 'Create log file')) {
+		$logHeader = @(
+			$logHeaderSep
+			"  Ghostscript PDF Compressor v2.0 - Log"
+			$logHeaderSep
+			"  Date        : $timestamp"
+			"  Ghostscript : $gsVersion ($gsExeName)"
+			"  PDF Settings: $PdfSettings"
+			"  Output Dir  : $resolvedOutputDir"
+			$logHeaderSep
+			""
+		)
+		[System.IO.File]::WriteAllLines($logFile, $logHeader)
+	}
 
+	# ── Processing loop ──────────────────────────────────────────────────
 	try {
-		$i = 0
 		$pdfFiles | ForEach-Object -Begin { $i = 0 } -Process {
 			$i++
 			$percent = [math]::Floor(($i / $total) * 100)
@@ -192,28 +195,28 @@ function Compress-Pdf {
 			# a temp file so we can include details on failure.
 			$gsOutputFile = Join-Path $tempDir "gs_output_$i.txt"
 			& $gsPath @gsArgs 1>$gsOutputFile 2>&1
-			if ($LASTEXITCODE -ne 0) {
-				$gsLog = if (Test-Path -LiteralPath $gsOutputFile) {
-					(Get-Content -LiteralPath $gsOutputFile -Raw).Trim()
-				} else {
-					'(no output captured)'
-				}
-				throw "Ghostscript failed on '$($_.Name)' (exit code: $LASTEXITCODE).`n$gsLog"
-			}
 
-			# Append raw GS output to log file
+			# Read captured GS output once (reuse for error handling + log)
 			$gsRaw = if (Test-Path -LiteralPath $gsOutputFile) {
 				(Get-Content -LiteralPath $gsOutputFile -Raw).Trim()
 			} else { '' }
-			$logSep = ('-' * 60)
-			$logEntry = @(
-				$logSep
-				"  [$i/$total] $($_.Name)"
-				$logSep
-				$gsRaw
-				""
-			)
-			[System.IO.File]::AppendAllLines($logFile, [string[]]$logEntry)
+
+			if ($LASTEXITCODE -ne 0) {
+				throw "Ghostscript failed on '$($_.Name)' (exit code: $LASTEXITCODE).`n$gsRaw"
+			}
+
+			# Append raw GS output to log file
+			if ($caller.ShouldProcess($logFile, 'Append GS output')) {
+				$logEntrySep = ('-' * 60)
+				$logEntry = @(
+					$logEntrySep
+					"  [$i/$total] $($_.Name)"
+					$logEntrySep
+					$gsRaw
+					""
+				)
+				[System.IO.File]::AppendAllLines($logFile, [string[]]$logEntry)
+			}
 
 			# Copy result back with original filename
 			Copy-Item -LiteralPath $tempOutput -Destination $outputFile -Force
@@ -257,7 +260,7 @@ function Compress-Pdf {
 	else {
 		Write-Information "  Compressed files are in '$resolvedOutputDir'."
 	}
-	Write-Information $separator
+	Write-Information $bannerSep
 	Write-Information ''
 }
 
