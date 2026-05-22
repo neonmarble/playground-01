@@ -67,42 +67,67 @@ if (-not (Test-Path -LiteralPath $OutputDir -PathType Container)) {
 	Write-Verbose "Created '$OutputDir' directory."
 }
 
-# Process PDFs
-$i = 0
-$total = $pdfFiles.Count
-Write-Host "Processing $total PDF file(s)..."
+# Create temp directory for files with special characters
+$tempDir = Join-Path $env:TEMP "gs-compress-temp-$(Get-Date -Format 'yyyyMMddHHmmss')"
+New-Item -ItemType Directory -Path $tempDir | Out-Null
+try {
+	# Process PDFs
+	$i = 0
+	$total = $pdfFiles.Count
+	Write-Host "Processing $total PDF file(s)..."
 
-$pdfFiles | ForEach-Object -Begin { $i = 0 } -Process {
-	$i++
-	$timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-	$percent = [math]::Floor(($i / $total) * 100)
+	$pdfFiles | ForEach-Object -Begin { $i = 0 } -Process {
+		# Skip non-PDF files
+		if ($_.Extension -ne '.pdf') {
+			return
+		}
 
-	Write-Progress -Activity 'Compressing PDFs' `
-		-Status "File $i of $total [$percent%]" `
-		-CurrentOperation $_.Name `
-		-PercentComplete $percent
+		$i++
+		$timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+		$percent = [math]::Floor(($i / $total) * 100)
 
-	Write-Host "[$timestamp] Compressing: $($_.Name)"
+		Write-Progress -Activity 'Compressing PDFs' `
+			-Status "File $i of $total [$percent%]" `
+			-CurrentOperation $_.Name `
+			-PercentComplete $percent
 
-	$outputFile = Join-Path $OutputDir $_.Name
+		Write-Host "[$timestamp] Compressing: $($_.Name)"
 
-	$gsArgs = @(
-		'-sDEVICE=pdfwrite',
-		'-dQUIET',
-		'-dCompatibilityLevel=1.7',
-		"-dPDFSETTINGS=$PdfSettings",
-		'-dNOPAUSE',
-		'-dBATCH',
-		"-sOutputFile=$outputFile",
-		$_.FullName
-	)
+		$outputFile = Join-Path $OutputDir $_.Name
 
-	& $gsPath $gsArgs
-	if ($LASTEXITCODE -ne 0) {
-		throw "Ghostscript failed on '$($_.Name)' (exit code: $LASTEXITCODE)"
+		# Sanitize filename for Ghostscript (handles %, &, spaces, etc.)
+		$safeName = "$($_.BaseName -replace '[^a-zA-Z0-9._-]', '_').pdf"
+		$tempInput = Join-Path $tempDir $safeName
+		$tempOutput = Join-Path $tempDir "compressed_$safeName"
+
+		Copy-Item $_.FullName -Destination $tempInput -Force
+
+		$gsArgs = @(
+			'-sDEVICE=pdfwrite',
+			'-dCompatibilityLevel=1.7',
+			"-dPDFSETTINGS=$PdfSettings",
+			'-dNOPAUSE',
+			'-dBATCH',
+			"-sOutputFile=$tempOutput",
+			$tempInput
+		)
+
+		& $gsPath $gsArgs
+		if ($LASTEXITCODE -ne 0) {
+			throw "Ghostscript failed on '$($_.Name)' (exit code: $LASTEXITCODE)"
+		}
+
+		# Copy result back with original filename
+		Copy-Item $tempOutput -Destination $outputFile -Force
+	} -End {
+		Write-Progress -Activity 'Compressing PDFs' -Completed
 	}
-} -End {
-	Write-Progress -Activity 'Compressing PDFs' -Completed
+}
+finally {
+	# Clean up temp directory
+	if (Test-Path -LiteralPath $tempDir -PathType Container) {
+		Remove-Item $tempDir -Recurse -Force
+	}
 }
 
 Write-Host "Done! Compressed files are in '$OutputDir'."
