@@ -89,7 +89,10 @@ function Compress-Pdf {
 	# ── Locate Ghostscript ────────────────────────────────────────────────
 	$gsPath = Get-Command -Name $GsExe -CommandType Application -ErrorAction Stop |
 		Select-Object -ExpandProperty Source
-	Write-Verbose "Using Ghostscript: $gsPath"
+
+	# Detect Ghostscript version
+	$gsVersion = & $gsPath --version 2>&1 | Select-Object -First 1
+	$gsExeName = [System.IO.Path]::GetFileNameWithoutExtension($gsPath)
 
 	# ── Collect PDFs ──────────────────────────────────────────────────────
 	$pdfFiles = @(Get-ChildItem -LiteralPath . -Filter '*.pdf' -File)
@@ -119,7 +122,17 @@ function Compress-Pdf {
 	$total = $pdfFiles.Count
 	$totalOriginalSize = 0
 	$totalCompressedSize = 0
-	Write-Information "Processing $total PDF file(s)..."
+	# ── Banner ────────────────────────────────────────────────────────────
+	$separator = ('-' * 40)
+	Write-Information ''
+	Write-Information $separator
+	Write-Information '  Ghostscript PDF Compressor v2.0'
+	Write-Information $separator
+	Write-Information "  Ghostscript : $gsVersion ($gsExeName)"
+	Write-Information "  PDF Settings: $PdfSettings"
+	Write-Information "  Output Dir  : $resolvedOutputDir"
+	Write-Information $separator
+	Write-Information ''
 
 	try {
 		$i = 0
@@ -135,8 +148,6 @@ function Compress-Pdf {
 			if (-not $caller.ShouldProcess($_.Name, 'Compress PDF')) {
 				return
 			}
-
-			Write-Information "[$i/$total] Compressing: $($_.Name)"
 
 			$outputFile = Join-Path $resolvedOutputDir $_.Name
 
@@ -188,9 +199,9 @@ function Compress-Pdf {
 				$ratio = 0
 			}
 
-			$origKB = [math]::Round($originalSize / 1KB, 1)
-			$compKB = [math]::Round($compressedSize / 1KB, 1)
-			Write-Information ("  {0}: {1}KB -> {2}KB ({3}% reduction)" -f $_.Name, $origKB, $compKB, $ratio)
+			$origMB = [math]::Round($originalSize / 1MB, 2)
+			$compMB = [math]::Round($compressedSize / 1MB, 2)
+			Write-Information ("  [{0}/{1}] `"{2}`"  |  {3} MB -> {4} MB  ({5}%)" -f $i, $total, $_.Name, $origMB, $compMB, $ratio)
 		} -End {
 			Write-Progress -Activity 'Compressing PDFs' -Completed
 		}
@@ -204,15 +215,18 @@ function Compress-Pdf {
 	}
 
 	# ── Summary ───────────────────────────────────────────────────────────
+	Write-Information ''
 	if ($totalOriginalSize -gt 0) {
 		$totalRatio   = [math]::Round((1 - $totalCompressedSize / $totalOriginalSize) * 100, 1)
 		$totalOrigMB  = [math]::Round($totalOriginalSize / 1MB, 2)
 		$totalCompMB  = [math]::Round($totalCompressedSize / 1MB, 2)
-		Write-Information ("`nDone! {0} -> {1} ({2}% total reduction)" -f "$totalOrigMB MB", "$totalCompMB MB", $totalRatio)
+		Write-Information ("  Total: {0} file(s)  |  {1} MB -> {2} MB  ({3}%)" -f $total, $totalOrigMB, $totalCompMB, $totalRatio)
 	}
 	else {
-		Write-Information "`nDone! Compressed files are in '$resolvedOutputDir'."
+		Write-Information "  Compressed files are in '$resolvedOutputDir'."
 	}
+	Write-Information $separator
+	Write-Information ''
 }
 
 # ── Invoke the function ───────────────────────────────────────────────────
