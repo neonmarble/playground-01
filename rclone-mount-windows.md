@@ -20,7 +20,7 @@ Download the `.msi` installer and run it:
 winget install winfsp.winfsp
 ```
 
-Reboot after installation.
+A reboot is usually only required if WinFsp was already running on your system; for a fresh install it is typically not necessary.
 
 ---
 
@@ -57,6 +57,8 @@ After setup, verify it works:
 rclone ls myserver:/home/myuser
 ```
 
+> **Tip**: Run `rclone config file` to see where your configuration is stored (usually `C:\Users\You\.config\rclone\rclone.conf`). You will need this path later if you run rclone as a Windows service.
+
 ---
 
 ## Step 2: Mount the Remote
@@ -66,7 +68,7 @@ rclone ls myserver:/home/myuser
 Mount to an automatically assigned drive letter (starts from Z: backwards):
 
 ```powershell
-rclone mount myserver:/home/myuser *
+rclone mount myserver:/home/myuser '*'
 ```
 
 Mount to a specific drive letter:
@@ -100,6 +102,13 @@ rclone mount myserver:/home/myuser \\MyServer\home
 > `--network-mode` tells Windows to treat the drive as a network share rather than a fixed disk. This avoids some compatibility issues.
 
 ---
+
+> **Note on directories used below**: If you use custom paths such as `C:\rclone-cache` or `C:\rclone-logs`, create them **before** starting the mount so that rclone can write cache files and logs without permission errors:
+>
+> ```powershell
+> New-Item -ItemType Directory -Force -Path "C:\rclone-cache"
+> New-Item -ItemType Directory -Force -Path "C:\rclone-logs"
+> ```
 
 ## Step 3: Recommended Flags for Daily Use
 
@@ -153,11 +162,25 @@ rclone mount myserver:/home/myuser X: `
 | `writes` | Direct for reads | Full write support with retries | Moderate | **General use (recommended)** |
 | `full` | Cached (fastest) | Full support, all data cached | High | Heavy editing, large files |
 
+### SFTP-specific recommendation
+
+On SFTP backends, computing file hashes is slow (the entire file must be read). The `--vfs-fast-fingerprint` flag in the command above already skips hashes for change detection, which solves the most common performance issue.
+
+If you encounter *upload* errors related to modification times (some ProFTPd configurations with `mod_sftp` do not allow setting times after upload), set `set_modtime = false` in the SFTP remote configuration instead of using the global `--no-modtime` flag.
+
 ---
 
 ## Step 4: Run as a Windows Service (auto-start) with Servy
 
 [Servy](https://github.com/aelassas/servy) is a professional-grade, open-source Windows service wrapper — a modern alternative to NSSM. It lets you run any executable as a native Windows service with health checks, log rotation, pre/post-launch hooks, environment variables, and more.
+
+> **Important — Service account access**: `winget` installs rclone to a per-user location (under `%LOCALAPPDATA%`) that `LocalSystem` often cannot access. For a reliable service deployment, download the official rclone `.zip` and extract it to a system-wide directory such as `C:\Program Files\rclone\`, then use that path in the commands below. Also place your `rclone.conf` in a location readable by all accounts, e.g. `C:\ProgramData\rclone\rclone.conf`, and reference it with `--config`.
+>
+> To copy your existing config for use by the service:
+> ```powershell
+> New-Item -ItemType Directory -Force -Path "C:\ProgramData\rclone"
+> Copy-Item "$env:USERPROFILE\.config\rclone\rclone.conf" "C:\ProgramData\rclone\rclone.conf"
+> ```
 
 ### 4.1 Install Servy
 
@@ -178,7 +201,7 @@ servy-cli install `
   --description="Mounts remote SFTP server via rclone to X: drive" `
   --path="C:\Program Files\rclone\rclone.exe" `
   --startupDir="C:\Program Files\rclone" `
-  --params="mount myserver:/home/myuser X: --network-mode --vfs-cache-mode writes --cache-dir C:\rclone-cache --vfs-cache-max-age 1h --vfs-cache-max-size 2G --file-perms 0777 --dir-perms 0777 --vfs-fast-fingerprint --log-file C:\rclone-logs\mount.log --log-level INFO --config C:\Users\You\.config\rclone\rclone.conf" `
+  --params="mount myserver:/home/myuser X: --network-mode --vfs-cache-mode writes --cache-dir C:\rclone-cache --vfs-cache-max-age 1h --vfs-cache-max-size 2G --file-perms 0777 --dir-perms 0777 --vfs-fast-fingerprint --log-file C:\rclone-logs\mount.log --log-level INFO --config C:\ProgramData\rclone\rclone.conf" `
   --startupType="AutomaticDelayedStart" `
   --priority="Normal" `
   --stdout="C:\rclone-logs\service-stdout.log" `
@@ -194,7 +217,7 @@ servy-cli install `
   --stopTimeout=15
 ```
 
-> **Important**: The service runs as `LocalSystem` by default. Use `--config` to explicitly point to your rclone.conf, since the SYSTEM account won't read your user config by default.
+> **Important**: The service runs as `LocalSystem` by default. Use `--config` to explicitly point to your `rclone.conf`, since the SYSTEM account won't read your user config by default. A good location is `C:\ProgramData\rclone\rclone.conf`.
 
 ### 4.3 Start the service
 
@@ -283,8 +306,16 @@ ssh-keygen -t ed25519 -f C:\Users\You\.ssh\id_ed25519
 
 ### Copy the public key to the remote server:
 
+Using the `type` alias (works in both CMD and PowerShell):
+
 ```powershell
 type C:\Users\You\.ssh\id_ed25519.pub | ssh myuser@192.168.1.100 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+```
+
+Or explicitly with `Get-Content` (reads the entire file as one string, avoiding line-ending quirks):
+
+```powershell
+Get-Content C:\Users\You\.ssh\id_ed25519.pub -Raw | ssh myuser@192.168.1.100 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
 ```
 
 ### Configure rclone to use the key:
@@ -297,7 +328,7 @@ rclone config
 Or non-interactively:
 
 ```powershell
-rclone config update myserver key_file="C:\Users\You\.ssh\id_ed25519"
+rclone config update myserver key_file "C:\Users\You\.ssh\id_ed25519"
 ```
 
 ---
@@ -313,7 +344,7 @@ rclone config update myserver key_file="C:\Users\You\.ssh\id_ed25519"
 If you need the mount in both elevated and non-elevated contexts, enable linked connections in the registry:
 
 ```powershell
-New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableLinkedConnections" -Value 1 -PropertyType DWORD
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableLinkedConnections" -Value 1 -Type DWORD -Force
 ```
 
 Reboot after setting.
@@ -338,13 +369,15 @@ If the mount fails silently, check WinFsp logs:
 
 ### GUI Alternative
 
-rclone has a built-in web GUI:
+rclone includes an official web-based GUI:
 
 ```powershell
-rclone rcd --rc-web-gui
+rclone gui
 ```
 
-Open `http://localhost:5572` in your browser — you can configure remotes and mount from the UI.
+This starts the remote control API and the GUI server on auto-chosen localhost ports, then opens your browser automatically. The URL includes a generated username and password so you are logged in automatically.
+
+> **Security**: Do not use `--no-auth` (it disables authentication and is intended for testing only). If you need to access the GUI from another device, prefer a secure tunnel (e.g., Tailscale or Cloudflare Tunnel) rather than exposing `--addr` or `--api-addr` to the local network.
 
 ---
 
