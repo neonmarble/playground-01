@@ -6,7 +6,6 @@ This is a Python port of gs-compress.ps1.
 """
 
 import argparse
-import math
 import os
 import re
 import shutil
@@ -148,12 +147,11 @@ def main():
         temp_dir = Path(_td)
 
         for i, pdf in enumerate(pdf_files, start=1):
-            percent = math.floor((i / total) * 100)
-            print(f"[{i}/{total}] ({percent}%) {pdf.name}")
-
             if args.dry_run:
-                print(f"  -> Would write to: {output_dir / pdf.name}")
+                print(f"[{i}/{total}] {pdf.name} -> {output_dir / pdf.name}")
                 continue
+
+            print(f"[{i}/{total}] {pdf.name}... ", end="", flush=True)
 
             output_file = output_dir / pdf.name
 
@@ -226,9 +224,7 @@ def main():
 
             orig_mb = round(original_size / (1024 * 1024), 2)
             comp_mb = round(compressed_size / (1024 * 1024), 2)
-            print(
-                f'  [{i}/{total}] "{pdf.name}"  |  {orig_mb} MB -> {comp_mb} MB  ({ratio}%)'
-            )
+            print(f"{orig_mb} MB -> {comp_mb} MB ({ratio}%)")
 
     # ── Summary ───────────────────────────────────────────────────────────
     print()
