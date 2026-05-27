@@ -6,45 +6,62 @@ This is a Python port of gs-compress.ps1.
 """
 
 import argparse
-import os
+import logging
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 
-def parse_args():
+BANNER_SEP: str = "-" * 40
+LOG_HEADER_SEP: str = "=" * 60
+LOG_ENTRY_SEP: str = "-" * 60
+VERSION: str = "2.0"
+DEFAULT_GS_EXE: str = "gswin64c"
+DEFAULT_PDF_SETTINGS: str = "/ebook"
+DEFAULT_OUTPUT_DIR: str = "compressed"
+BYTES_PER_MB: float = 1024 * 1024
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Compresses PDF files in the current directory using Ghostscript."
     )
     parser.add_argument(
         "--output-dir", "-o",
-        default="compressed",
-        help='Destination directory for compressed PDFs. Defaults to "compressed".',
+        default=DEFAULT_OUTPUT_DIR,
+        help=f'Destination directory for compressed PDFs. Defaults to "{DEFAULT_OUTPUT_DIR}".',
     )
     parser.add_argument(
         "--pdf-settings", "-s",
-        default="/ebook",
+        default=DEFAULT_PDF_SETTINGS,
         choices=["/screen", "/ebook", "/printer", "/prepress", "/default"],
-        help="Ghostscript PDFSETTINGS preset. Defaults to /ebook.",
+        help=f"Ghostscript PDFSETTINGS preset. Defaults to {DEFAULT_PDF_SETTINGS}.",
     )
     parser.add_argument(
         "--gs-exe", "-g",
-        default="gswin64c",
-        help='Path to the Ghostscript executable. Defaults to "gswin64c".',
+        default=DEFAULT_GS_EXE,
+        help=f'Path to the Ghostscript executable. Defaults to "{DEFAULT_GS_EXE}".',
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would happen without compressing any files.",
     )
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose/debug logging.",
+    )
     return parser.parse_args()
 
 
-def locate_gs(gs_exe):
+def locate_gs(gs_exe: str) -> Path:
     """Find the Ghostscript executable on PATH or at an absolute/relative path."""
     gs_path = shutil.which(gs_exe)
     if gs_path:
@@ -55,7 +72,7 @@ def locate_gs(gs_exe):
         return p.resolve()
 
     # Friendly fallback for Linux/macOS when the Windows default is used
-    if gs_exe == "gswin64c":
+    if gs_exe == DEFAULT_GS_EXE:
         gs_path = shutil.which("gs")
         if gs_path:
             return Path(gs_path)
@@ -63,7 +80,7 @@ def locate_gs(gs_exe):
     raise FileNotFoundError(f"Ghostscript executable not found: {gs_exe}")
 
 
-def get_gs_version(gs_path):
+def get_gs_version(gs_path: Path) -> str:
     """Run Ghostscript with --version and return the first line of output."""
     result = subprocess.run(
         [str(gs_path), "--version"],
@@ -74,68 +91,78 @@ def get_gs_version(gs_path):
     return result.stdout.strip().splitlines()[0]
 
 
-def main():
+def main() -> None:
+    """Main entry point for the PDF compressor."""
     args = parse_args()
+
+    # Configure logging
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format="%(message)s",
+        stream=sys.stdout,
+    )
 
     # ── Locate Ghostscript ────────────────────────────────────────────────
     try:
         gs_path = locate_gs(args.gs_exe)
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        logger.error("%s", exc)
         sys.exit(1)
 
     try:
         gs_version = get_gs_version(gs_path)
-    except Exception as exc:  # noqa: BLE001
-        print(f"Error detecting Ghostscript version: {exc}", file=sys.stderr)
+    except subprocess.CalledProcessError as exc:
+        logger.error("Error detecting Ghostscript version: %s", exc)
+        sys.exit(1)
+    except FileNotFoundError as exc:
+        logger.error("Ghostscript executable not found: %s", exc)
         sys.exit(1)
 
-    gs_exe_name = gs_path.stem
+    gs_exe_name: str = gs_path.stem
 
     # ── Collect PDFs ──────────────────────────────────────────────────────
-    pdf_files = sorted([f for f in Path(".").glob("*.pdf") if f.is_file()])
+    pdf_files: list[Path] = sorted([f for f in Path(".").glob("*.pdf") if f.is_file()])
     if not pdf_files:
-        print("No PDF files found in the current directory.")
+        logger.info("No PDF files found in the current directory.")
         sys.exit(0)
 
     # ── Ensure output directory ───────────────────────────────────────────
-    output_dir = Path(args.output_dir).resolve()
+    output_dir: Path = Path(args.output_dir).resolve()
     if not args.dry_run:
         output_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Counters ───────────────────────────────────────────────────────────
-    total = len(pdf_files)
-    total_original_size = 0
-    total_compressed_size = 0
+    total: int = len(pdf_files)
+    total_original_size: int = 0
+    total_compressed_size: int = 0
 
     # ── Banner ────────────────────────────────────────────────────────────
-    banner_sep = "-" * 40
-    print()
-    print(banner_sep)
-    print("  Ghostscript PDF Compressor v2.0")
-    print(banner_sep)
-    print(f"  Ghostscript : {gs_version} ({gs_exe_name})")
-    print(f"  PDF Settings: {args.pdf_settings}")
-    print(f"  Output Dir  : {output_dir}")
-    print(banner_sep)
-    print()
+    logger.info("")
+    logger.info(BANNER_SEP)
+    logger.info("  Ghostscript PDF Compressor v%s", VERSION)
+    logger.info(BANNER_SEP)
+    logger.info("  Ghostscript : %s (%s)", gs_version, gs_exe_name)
+    logger.info("  PDF Settings: %s", args.pdf_settings)
+    logger.info("  Output Dir  : %s", output_dir)
+    logger.info(BANNER_SEP)
+    logger.info("")
 
     # ── Log file ──────────────────────────────────────────────────────────
-    now = datetime.now().astimezone()
-    timestamp = now.isoformat(timespec="seconds")
-    safe_timestamp = timestamp.replace(":", "")
-    log_file = output_dir / f"log-{safe_timestamp}.txt"
-    log_header_sep = "=" * 60
+    now: datetime = datetime.now().astimezone()
+    timestamp: str = now.isoformat(timespec="seconds")
+    safe_timestamp: str = timestamp.replace(":", "")
+    log_file: Path = output_dir / f"log-{safe_timestamp}.txt"
 
-    log_header_lines = [
-        log_header_sep,
-        "  Ghostscript PDF Compressor v2.0 - Log",
-        log_header_sep,
+    log_header_lines: list[str] = [
+        LOG_HEADER_SEP,
+        f"  Ghostscript PDF Compressor v{VERSION} - Log",
+        LOG_HEADER_SEP,
         f"  Date        : {timestamp}",
         f"  Ghostscript : {gs_version} ({gs_exe_name})",
         f"  PDF Settings: {args.pdf_settings}",
         f"  Output Dir  : {output_dir}",
-        log_header_sep,
+        LOG_HEADER_SEP,
         "",
     ]
 
@@ -144,25 +171,25 @@ def main():
 
     # ── Processing loop ──────────────────────────────────────────────────
     with tempfile.TemporaryDirectory(prefix="gs-compress-", ignore_cleanup_errors=True) as _td:
-        temp_dir = Path(_td)
+        temp_dir: Path = Path(_td)
 
         for i, pdf in enumerate(pdf_files, start=1):
             if args.dry_run:
-                print(f"[{i}/{total}] {pdf.name} -> {output_dir / pdf.name}")
+                logger.info("[%d/%d] %s -> %s", i, total, pdf.name, output_dir / pdf.name)
                 continue
 
-            print(f"[{i}/{total}] {pdf.name}... ", end="", flush=True)
+            logger.info("[%d/%d] %s... ", i, total, pdf.name)
 
-            output_file = output_dir / pdf.name
+            output_file: Path = output_dir / pdf.name
 
             # Sanitize filename for Ghostscript (handles %, &, spaces, [], etc.)
-            safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", pdf.stem) + ".pdf"
-            temp_input = temp_dir / safe_name
-            temp_output = temp_dir / f"compressed_{safe_name}"
+            safe_name: str = re.sub(r"[^a-zA-Z0-9._-]", "_", pdf.stem) + ".pdf"
+            temp_input: Path = temp_dir / safe_name
+            temp_output: Path = temp_dir / f"compressed_{safe_name}"
 
             shutil.copy2(pdf, temp_input)
 
-            gs_args = [
+            gs_args: list[str] = [
                 str(gs_path),
                 "-sDEVICE=pdfwrite",
                 "-dCompatibilityLevel=1.7",
@@ -173,13 +200,12 @@ def main():
                 str(temp_input),
             ]
 
-            # Capture Ghostscript's noisy stdout (and stderr) to a temp file
-            gs_output_file = temp_dir / f"gs_output_{i}.txt"
+            # Run Ghostscript and capture output
+            gs_output_file: Path = temp_dir / f"gs_output_{i}.txt"
             try:
                 result = subprocess.run(
                     gs_args,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
+                    capture_output=True,
                     text=True,
                     check=False,
                 )
@@ -188,20 +214,24 @@ def main():
                     raise subprocess.CalledProcessError(
                         result.returncode, gs_args, output=result.stdout
                     )
-            except Exception as exc:  # noqa: BLE001
-                print(
-                    f"Ghostscript failed on '{pdf.name}' (exit code: {result.returncode}).\n{result.stdout}",
-                    file=sys.stderr,
+            except subprocess.CalledProcessError as exc:
+                logger.error(
+                    "Ghostscript failed on '%s' (exit code: %d).\n%s",
+                    pdf.name,
+                    exc.returncode,
+                    exc.output,
                 )
+                sys.exit(1)
+            except FileNotFoundError as exc:
+                logger.error("Ghostscript executable not found: %s", exc)
                 sys.exit(1)
 
             # Append raw GS output to log file
-            gs_raw = gs_output_file.read_text(encoding="utf-8").strip()
-            log_entry_sep = "-" * 60
-            log_entry_lines = [
-                log_entry_sep,
+            gs_raw: str = gs_output_file.read_text(encoding="utf-8").strip()
+            log_entry_lines: list[str] = [
+                LOG_ENTRY_SEP,
                 f"  [{i}/{total}] {pdf.name}",
-                log_entry_sep,
+                LOG_ENTRY_SEP,
                 gs_raw,
                 "",
             ]
@@ -212,33 +242,34 @@ def main():
             shutil.copy2(temp_output, output_file)
 
             # ── Compression ratio reporting ──────────────────────────────
-            original_size = pdf.stat().st_size
-            compressed_size = output_file.stat().st_size
+            original_size: int = pdf.stat().st_size
+            compressed_size: int = output_file.stat().st_size
             total_original_size += original_size
             total_compressed_size += compressed_size
 
             if original_size > 0:
-                ratio = round((1 - compressed_size / original_size) * 100, 1)
+                ratio: float = round((1 - compressed_size / original_size) * 100, 1)
             else:
-                ratio = 0
+                ratio = 0.0
 
-            orig_mb = round(original_size / (1024 * 1024), 2)
-            comp_mb = round(compressed_size / (1024 * 1024), 2)
-            print(f"{orig_mb} MB -> {comp_mb} MB ({ratio}%)")
+            orig_mb: float = round(original_size / BYTES_PER_MB, 2)
+            comp_mb: float = round(compressed_size / BYTES_PER_MB, 2)
+            logger.info("%s MB -> %s MB (%s%%)", orig_mb, comp_mb, ratio)
 
     # ── Summary ───────────────────────────────────────────────────────────
-    print()
+    logger.info("")
     if total_original_size > 0:
-        total_ratio = round((1 - total_compressed_size / total_original_size) * 100, 1)
-        total_orig_mb = round(total_original_size / (1024 * 1024), 2)
-        total_comp_mb = round(total_compressed_size / (1024 * 1024), 2)
-        print(
-            f"  Total: {total} file(s)  |  {total_orig_mb} MB -> {total_comp_mb} MB  ({total_ratio}%)"
+        total_ratio: float = round((1 - total_compressed_size / total_original_size) * 100, 1)
+        total_orig_mb: float = round(total_original_size / BYTES_PER_MB, 2)
+        total_comp_mb: float = round(total_compressed_size / BYTES_PER_MB, 2)
+        logger.info(
+            "  Total: %d file(s)  |  %s MB -> %s MB  (%s%%)",
+            total, total_orig_mb, total_comp_mb, total_ratio,
         )
     else:
-        print(f"  Compressed files are in '{output_dir}'.")
-    print(banner_sep)
-    print()
+        logger.info("  Compressed files are in '%s'.", output_dir)
+    logger.info(BANNER_SEP)
+    logger.info("")
 
 
 if __name__ == "__main__":
