@@ -46,6 +46,10 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+mypy_report/
 nosetests.xml
 coverage.xml
 *.cover
