@@ -1,47 +1,54 @@
 # Playground 01
 
-> A sandbox for scripting, automation, and DevOps experiments.
+> a sandbox for scripting, automation, and devops experiments.
 
-## Contents
+---
 
-| Directory/File | Description | Languages |
-|----------------|-------------|-----------|
-| [`gs-compress/`](gs-compress/) | Batch PDF compressor using Ghostscript | PowerShell, Python |
-| [`ping_monitors/`](ping_monitors/) | Network uptime monitor with Telegram alerts | Bash, Python |
-| [`rclone-mount-windows.md`](rclone-mount-windows.md) | Guide: mount remote SSH dirs on Windows via rclone + WinFsp | — |
+## Projects
 
 ### gs-compress
+Batch-compress PDFs via Ghostscript — copies go to a subdirectory, originals untouched.
 
-Compresses all PDFs in the current directory using Ghostscript. Outputs compressed copies (originals untouched), per-file compression ratios, a timestamped log file, and an overall summary.
+```
+gs-compress/
+├── gs-compress.ps1      # PowerShell (with -WhatIf / -Confirm)
+├── gs-compress.py        # Python 3 (zero dependencies)
+└── README-gs-compress.ps1.md
+```
 
 ```powershell
-# PowerShell version
-.\gs-compress\gs-compress.ps1
+.\gs-compress\gs-compress.ps1 -PdfSettings /screen -OutputDir small
+```
 
-# Python version (zero dependencies)
+```bash
 python gs-compress\gs-compress.py --pdf-settings /screen -o small
 ```
 
-Supports `-WhatIf`/`-Confirm` (PowerShell) and `--dry-run` (Python).
-
 ### ping_monitors
+Ping a host and get Telegram alerts on down/recovery — with state tracking to avoid spam.
 
-Pings a host and sends Telegram alerts on state changes (down / recovery). Includes multiple iterations that evolved from a minimal script to a combined best-of version.
+| # | File | Lang | Notes |
+|---|------|------|-------|
+| 1 | `ping_monitor-g54m.sh` | Bash | original, hardcoded host, state tracking |
+| 2 | `ping_monitor-dsv4f.sh` | Bash | cleaner structure, CLI arg, no state tracking |
+| 3 | `ping_monitor-mimo-v2_5-v01.sh` | Bash | best of 1+2 combined |
+| 4 | `ping_monitor-mimo-v2_5-v01.py` | Python | cross-platform port, argparse, zero deps |
 
 ```bash
-# Bash version
 export TELEGRAM_BOT_TOKEN="..." TELEGRAM_CHAT_ID="..."
-./ping_monitors/ping_monitor-mimo-v2_5-v01.sh 1.1.1.1 -i 30
+./ping_monitors/ping_monitor-mimo-v2_5-v01.sh 1.1.1.1
+```
 
-# Python version (zero dependencies, cross-platform)
+```bash
 python ping_monitors/ping_monitor-mimo-v2_5-v01.py 1.1.1.1 -i 30
 ```
 
 ### rclone-mount-windows.md
+Step-by-step guide: mount a remote SSH folder as a Windows drive using rclone + WinFsp. Covers config, caching, network mode, and running as a Windows service with Servy.
 
-Step-by-step guide covering SFTP remote configuration, mounting with WinFsp, performance tuning, running as a Windows service with Servy, and SSH key setup.
+---
 
-## Getting Started
+## Quick start
 
 ```bash
 git clone https://github.com/neonmarble/playground-01.git
@@ -50,15 +57,19 @@ cd playground-01
 
 ## Topics
 
-- **Git** -- branching, PRs, rebasing
-- **CI/CD** -- GitHub Actions, pipelines
-- **Scripting** -- Bash, PowerShell, Python (cross-platform)
-- **DevOps** -- monitoring, file syncing, automation
+- **Git** — branching, rebasing, PRs
+- **CI/CD** — GitHub Actions, pipelines
+- **Scripting** — Bash, PowerShell, Python
+- **DevOps tooling** — monitoring, file sync, automation
 
-## Resources
+## References
 
-- [Git Documentation](https://git-scm.com/doc)
-- [GitHub Actions Docs](https://docs.github.com/en/actions)
-- [Oh Shit, Git!?!](https://ohshitgit.com/)
+- [Git docs](https://git-scm.com/doc)
+- [GitHub Actions](https://docs.github.com/en/actions)
 - [Ghostscript](https://www.ghostscript.com/)
 - [rclone](https://rclone.org/)
+- [Oh Shit, Git!?!](https://ohshitgit.com/)
+
+---
+
+<p align="center">learning in public</p>
