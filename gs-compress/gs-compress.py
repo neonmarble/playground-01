@@ -178,8 +178,6 @@ def main() -> None:
                 logger.info("[%d/%d] %s -> %s", i, total, pdf.name, output_dir / pdf.name)
                 continue
 
-            logger.info("[%d/%d] %s... ", i, total, pdf.name)
-
             output_file: Path = output_dir / pdf.name
 
             # Sanitize filename for Ghostscript (handles %, &, spaces, [], etc.)
@@ -254,7 +252,7 @@ def main() -> None:
 
             orig_mb: float = round(original_size / BYTES_PER_MB, 2)
             comp_mb: float = round(compressed_size / BYTES_PER_MB, 2)
-            logger.info("%s MB -> %s MB (%s%%)", orig_mb, comp_mb, ratio)
+            logger.info("[%d/%d] %s... %s MB -> %s MB (%s%%)", i, total, pdf.name, orig_mb, comp_mb, ratio)
 
     # ── Summary ───────────────────────────────────────────────────────────
     logger.info("")
