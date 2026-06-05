@@ -187,11 +187,30 @@ def main() -> None:
 
             shutil.copy2(pdf, temp_input)
 
+            # ── Ghostscript arguments ──────────────────────────────────
+            # Order matters: -dPDFSETTINGS is applied first, then explicit
+            # overrides follow so they take precedence.
             gs_args: list[str] = [
                 str(gs_path),
                 "-sDEVICE=pdfwrite",
-                "-dCompatibilityLevel=1.7",
                 f"-dPDFSETTINGS={args.pdf_settings}",
+                # ── Structure / fidelity preservation ─────────────────────
+                "-dCompatibilityLevel=2.0",                 # support latest PDF features
+                "-dColorConversionStrategy=/LeaveColorUnchanged",  # don't force sRGB
+                "-dPreserveOverprintSettings=true",                  # keep overprint info
+                "-dPreserveOPIComments=true",                       # keep OPI metadata
+                "-dUCRandBGInfo=/Preserve",                        # keep UCR/black generation
+                "-dAutoRotatePages=/None",                         # don't auto-rotate
+                "-dPreserveEPSInfo=true",                          # keep EPS metadata
+                "-dPreserveMarkedContent=true",                    # keep marked content
+                # ── Lossless optimizations ────────────────────────────────
+                "-dDetectDuplicateImages=true",   # dedup identical images
+                "-dFastWebView=true",              # linearize for web streaming
+                "-dSubsetFonts=true",               # embed only used glyphs
+                "-dCompressFonts=true",             # lossless font compression
+                "-dRemoveUnusedResources=true",     # strip unused objects
+                "-dPassThroughJPEGImages=true",     # avoid recompressing JPEGs
+                # ── Standard flags ────────────────────────────────────────
                 "-dNOPAUSE",
                 "-dBATCH",
                 f"-sOutputFile={temp_output}",
