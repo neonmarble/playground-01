@@ -196,7 +196,6 @@ def main() -> None:
                 f"-dPDFSETTINGS={args.pdf_settings}",
                 # ── Structure / fidelity preservation ─────────────────────
                 "-dCompatibilityLevel=2.0",                 # support latest PDF features
-                "-dColorConversionStrategy=/LeaveColorUnchanged",  # don't force sRGB
                 "-dPreserveOverprintSettings=true",                  # keep overprint info
                 "-dPreserveOPIComments=true",                       # keep OPI metadata
                 "-dUCRandBGInfo=/Preserve",                        # keep UCR/black generation
